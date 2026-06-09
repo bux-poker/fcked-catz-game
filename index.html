@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <title>Fcked Catz — Downhill</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="game-canvas"></canvas>
+
+      <div id="screen-select" class="screen">
+        <div class="menu-header">
+          <img
+            id="menu-logo"
+            class="menu-logo"
+            src="/logo.png"
+            alt="FCKED C@TZ"
+          />
+          <p class="menu-tagline">STREET SKATE</p>
+        </div>
+        <p class="subtitle">Choose your cat</p>
+        <div id="cat-grid" class="cat-grid"></div>
+        <button id="btn-start" class="btn primary" disabled>SKATE!</button>
+      </div>
+
+      <div id="screen-hud" class="screen hidden">
+        <div class="hud-top">
+          <div id="hud-lives" class="lives"></div>
+          <div class="hud-stats">
+            <span id="hud-score">0</span>
+          </div>
+        </div>
+        <div id="trick-popup" class="trick-popup hidden"></div>
+      </div>
+
+      <div id="screen-over" class="screen hidden">
+        <div class="game-over-card">
+          <h2>Wiped out</h2>
+          <p id="final-score" class="big-stat">Score: 0</p>
+          <button id="btn-menu-over" class="btn primary" type="button">Main menu</button>
+        </div>
+      </div>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
