@@ -36,8 +36,25 @@ ui.bindHandlers({
 
 ui.setPhase('select');
 
+function isLandscape(): boolean {
+  const o = screen.orientation?.type;
+  if (o) return o.startsWith('landscape');
+  return window.innerWidth > window.innerHeight;
+}
+
+function updateOrientationLock() {
+  document.body.classList.toggle('landscape-locked', isLandscape());
+}
+
+updateOrientationLock();
+window.addEventListener('resize', updateOrientationLock);
+window.addEventListener('orientationchange', updateOrientationLock);
+screen.orientation?.addEventListener('change', updateOrientationLock);
+
 function loop() {
-  game.tick();
+  if (!document.body.classList.contains('landscape-locked')) {
+    game.tick();
+  }
   requestAnimationFrame(loop);
 }
 

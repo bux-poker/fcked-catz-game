@@ -11,6 +11,47 @@
     <link rel="stylesheet" href="/src/style.css" />
   </head>
   <body>
+    <div id="rotate-prompt" class="rotate-prompt" aria-live="polite">
+      <div class="rotate-prompt-inner">
+        <svg
+          class="rotate-icon"
+          viewBox="0 0 64 64"
+          width="72"
+          height="72"
+          aria-hidden="true"
+        >
+          <rect
+            x="20"
+            y="8"
+            width="24"
+            height="40"
+            rx="4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+          />
+          <circle cx="32" cy="44" r="2" fill="currentColor" />
+          <path
+            d="M48 20a16 16 0 0 1 0 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+          />
+          <path
+            d="M52 16l4 4-4 4"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="3"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+        </svg>
+        <p class="rotate-title">Please rotate your device</p>
+        <p class="rotate-sub">Portrait mode only</p>
+      </div>
+    </div>
+
     <div id="app">
       <canvas id="game-canvas"></canvas>
 
