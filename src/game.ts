@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { buildCatRig, disposeCatRig, type CatRig } from './catModel';
+import { buildCatRig, disposeCatRig, SKATE_BODY_LEAN, type CatRig } from './catModel';
 import { BUILDING_DEPTH } from './buildings';
 import { CrossroadManager } from './crossroads';
 import { buildRoad, recycleRoad, resetRoad, SEGMENT_LENGTH, type RoadPiece } from './road';
@@ -52,6 +52,7 @@ export class Game {
   private readonly spawnAheadMax = 105;
   private readonly minObstaclesAhead = 7;
   private readonly minPedestriansAhead = 4;
+  private readonly carFollowGap = WORLD.carHalfLength * 2 + 1.4;
   private spawnedCrossTraffic = new Set<number>();
   private spawnedRoadworks = new Set<number>();
   private crossroadManager = new CrossroadManager();
@@ -245,7 +246,7 @@ export class Game {
   private resetTrickPose() {
     if (!this.catRig) return;
     this.catRig.board.rotation.set(0, 0, 0);
-    this.catRig.body.rotation.set(-0.12, 0, 0);
+    this.catRig.body.rotation.set(SKATE_BODY_LEAN, 0, 0);
   }
 
   private updateTrick(dt: number) {
@@ -258,11 +259,11 @@ export class Game {
     } else if (this.airTrick === 'heelflip') {
       board.rotation.z = -t * Math.PI * 2;
     } else if (this.airTrick === 'tailgrab') {
-      body.rotation.x = -0.12 - 0.55 * Math.sin(t * Math.PI);
+      body.rotation.x = SKATE_BODY_LEAN - 0.55 * Math.sin(t * Math.PI);
       body.rotation.z = 0.25 * Math.sin(t * Math.PI);
       board.rotation.x = 0.2 * Math.sin(t * Math.PI);
     } else if (this.airTrick === 'nosegrab') {
-      body.rotation.x = -0.12 + 0.35 * Math.sin(t * Math.PI);
+      body.rotation.x = SKATE_BODY_LEAN + 0.35 * Math.sin(t * Math.PI);
       body.rotation.z = -0.2 * Math.sin(t * Math.PI);
       board.rotation.x = -0.25 * Math.sin(t * Math.PI);
     }
@@ -460,27 +461,12 @@ export class Game {
         const carZ = obj.mesh.position.z;
         const crossOk = this.crossroadManager.canMoveVertical(carZ, baseVz);
         const works = this.roadworksManager.resolveCarControl(carZ, lane, baseVz);
-        const vz = crossOk && works.canMove ? baseVz : 0;
+        let vz = crossOk && works.canMove ? baseVz : 0;
+        vz = this.applyFollowGap(obj, lane, vz);
         obj.mesh.position.z += vz * dt;
 
         const homeX = laneCenterX(lane);
-        const nearCross = this.crossroadManager.isNearCrossroad(carZ);
-
-        if (nearCross || works.pastSite) {
-          obj.mesh.position.x = homeX;
-          obj.mesh.userData.worksDiverted = false;
-        } else if (works.divert) {
-          obj.mesh.userData.worksDiverted = true;
-          obj.mesh.position.x = THREE.MathUtils.lerp(obj.mesh.position.x, works.divertX, dt * 4);
-        } else if (obj.mesh.userData.worksDiverted) {
-          obj.mesh.position.x = THREE.MathUtils.lerp(obj.mesh.position.x, homeX, dt * 4);
-          if (Math.abs(obj.mesh.position.x - homeX) < 0.06) {
-            obj.mesh.position.x = homeX;
-            obj.mesh.userData.worksDiverted = false;
-          }
-        } else {
-          obj.mesh.position.x = homeX;
-        }
+        this.updateCarLaneX(obj, works, homeX, dt);
       } else if (obj.kind === 'car-cross') {
         const baseVx = (obj.mesh.userData.baseVx as number) ?? 0;
         const vx = this.crossroadManager.canMoveHorizontal(
@@ -506,6 +492,45 @@ export class Game {
       }
     }
     this.obstacles = this.obstacles.filter((o) => !o.hit);
+  }
+
+  private applyFollowGap(car: WorldObject, lane: Lane, vz: number): number {
+    if (Math.abs(vz) < 0.01) return 0;
+
+    const carZ = car.mesh.position.z;
+    for (const other of this.obstacles) {
+      if (other.kind !== 'car' || other === car) continue;
+      if ((other.mesh.userData.lane as Lane) !== lane) continue;
+
+      const otherZ = other.mesh.position.z;
+      if (vz < 0) {
+        if (otherZ >= carZ - 0.2) continue;
+        if (carZ - otherZ < this.carFollowGap) return 0;
+      } else {
+        if (otherZ <= carZ + 0.2) continue;
+        if (otherZ - carZ < this.carFollowGap) return 0;
+      }
+    }
+    return vz;
+  }
+
+  private updateCarLaneX(
+    car: WorldObject,
+    works: { divert: boolean; divertX: number; pastSite: boolean },
+    homeX: number,
+    dt: number,
+  ) {
+    const carZ = car.mesh.position.z;
+    const nearCross = this.crossroadManager.isNearCrossroad(carZ, 8);
+
+    if (nearCross || works.pastSite || !works.divert) {
+      car.mesh.position.x = homeX;
+      car.mesh.userData.worksDiverted = false;
+      return;
+    }
+
+    car.mesh.userData.worksDiverted = true;
+    car.mesh.position.x = THREE.MathUtils.lerp(car.mesh.position.x, works.divertX, dt * 3.5);
   }
 
   private checkCollisions() {

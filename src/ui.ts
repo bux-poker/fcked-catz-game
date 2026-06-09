@@ -9,6 +9,10 @@ export class UI {
   private overScreen = document.getElementById('screen-over')!;
   private catGrid = document.getElementById('cat-grid')!;
   private btnStart = document.getElementById('btn-start') as HTMLButtonElement;
+  private btnControls = document.getElementById('btn-controls') as HTMLButtonElement;
+  private controlsModal = document.getElementById('controls-modal')!;
+  private controlsBackdrop = document.getElementById('controls-backdrop') as HTMLButtonElement;
+  private btnCloseControls = document.getElementById('btn-close-controls') as HTMLButtonElement;
   private hudLives = document.getElementById('hud-lives')!;
   private hudScore = document.getElementById('hud-score')!;
   private finalScore = document.getElementById('final-score')!;
@@ -23,6 +27,9 @@ export class UI {
     this.btnStart.addEventListener('click', () => {
       if (this.selectedCat && this.onStart) this.onStart();
     });
+    this.btnControls.addEventListener('click', () => this.openControls());
+    this.btnCloseControls.addEventListener('click', () => this.closeControls());
+    this.controlsBackdrop.addEventListener('click', () => this.closeControls());
     this.btnMenuOver.addEventListener('click', () => this.onDismissGameOver?.());
   }
 
@@ -38,6 +45,15 @@ export class UI {
     this.selectScreen.classList.toggle('hidden', phase !== 'select');
     this.hudScreen.classList.toggle('hidden', phase !== 'playing');
     this.overScreen.classList.toggle('hidden', phase !== 'over');
+    if (phase !== 'select') this.closeControls();
+  }
+
+  openControls() {
+    this.controlsModal.classList.remove('hidden');
+  }
+
+  closeControls() {
+    this.controlsModal.classList.add('hidden');
   }
 
   updateHud(lives: number, score: number) {

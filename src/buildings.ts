@@ -2,16 +2,21 @@ import * as THREE from 'three';
 import { buildCrossroadVisual, clipOutCrossroads, getCrossroadLocalZs } from './crossroads';
 import { WORLD } from './world';
 
-/** Muted facade tones — faint grey and brown only. */
+/** Muted cartoon facade tones — warm grey and brown. */
 const FACADE_COLORS = [
-  0x8f8a82, 0x847f78, 0x9a948c, 0x7a756e, 0x928b83, 0x867e76,
-  0x9b9389, 0x807870, 0x8c857d, 0x918a82, 0x7e7871, 0x969088,
+  0xa39e96, 0x9a938b, 0xb0a89f, 0x8f8880, 0xa8a098, 0x968f87,
+  0xada59c, 0x918a82, 0x9f978f, 0xa5a098, 0x8c857d, 0xaab2a8,
 ];
 
 const AWNING_SOLID_COLORS = [
-  0x6b4f4f, 0x4f5d6b, 0x5a6b4f, 0x6b5a4f, 0x4f6b63, 0x5c4f6b,
-  0x7a4a4a, 0x3d5a4a, 0x5a4a3d, 0x4a4a6b,
+  0x7a5555, 0x55667a, 0x5f7a55, 0x7a6a55, 0x557a70, 0x65557a,
+  0x8a5050, 0x456a55, 0x6a5545, 0x505a7a,
 ];
+
+const OUTLINE_COLOR = 0x1a1816;
+const OUTLINE_SCALE = 1.058;
+const FRAME_COLOR = 0xeee9df;
+const FRAME_SHADOW = 0x4a4540;
 
 const BUILDING_DEPTH = 4.5;
 
@@ -37,7 +42,12 @@ function hexToRgb(hex: number): [number, number, number] {
   return [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255];
 }
 
-function createBrickTexture(baseColor: number): THREE.CanvasTexture {
+function hexToCss(hex: number): string {
+  const [r, g, b] = hexToRgb(hex);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function createCartoonBrickTexture(baseColor: number): THREE.CanvasTexture {
   const cached = brickCache.get(baseColor);
   if (cached) return cached;
 
@@ -48,14 +58,14 @@ function createBrickTexture(baseColor: number): THREE.CanvasTexture {
   const ctx = canvas.getContext('2d')!;
 
   const [br, bg, bb] = hexToRgb(baseColor);
-  const mortar = `rgb(${Math.min(255, br + 18)}, ${Math.min(255, bg + 16)}, ${Math.min(255, bb + 14)})`;
+  const mortar = `rgb(${Math.min(255, br + 28)}, ${Math.min(255, bg + 24)}, ${Math.min(255, bb + 20)})`;
 
   ctx.fillStyle = mortar;
   ctx.fillRect(0, 0, size, size);
 
-  const brickW = 36;
-  const brickH = 14;
-  const mortarPx = 2;
+  const brickW = 44;
+  const brickH = 18;
+  const mortarPx = 4;
   const rows = Math.ceil(size / (brickH + mortarPx)) + 1;
 
   for (let row = 0; row < rows; row++) {
@@ -65,12 +75,17 @@ function createBrickTexture(baseColor: number): THREE.CanvasTexture {
 
     for (let col = -1; col < cols; col++) {
       const x = col * (brickW + mortarPx) + offset;
-      const shade = ((row * 3 + col) % 5) * 4 - 8;
+      const tone = (row + col) % 3;
+      const shade = tone === 0 ? -6 : tone === 1 ? 4 : -2;
       const r = Math.max(0, Math.min(255, br + shade));
       const g = Math.max(0, Math.min(255, bg + shade - 1));
       const b = Math.max(0, Math.min(255, bb + shade - 2));
+
       ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
       ctx.fillRect(x + mortarPx / 2, y + mortarPx / 2, brickW, brickH);
+
+      ctx.fillStyle = `rgba(255, 255, 255, ${tone === 1 ? 0.12 : 0.05})`;
+      ctx.fillRect(x + mortarPx / 2 + 3, y + mortarPx / 2 + 2, brickW - 6, 4);
     }
   }
 
@@ -91,12 +106,12 @@ function getStripedAwningTexture(): THREE.CanvasTexture {
   canvas.height = size;
   const ctx = canvas.getContext('2d')!;
 
-  ctx.fillStyle = '#f2f0ec';
+  ctx.fillStyle = '#f5f2ec';
   ctx.fillRect(0, 0, size, size);
 
-  ctx.strokeStyle = '#c73e3a';
-  ctx.lineWidth = 10;
-  for (let i = -size; i < size * 2; i += 14) {
+  ctx.strokeStyle = '#d63b36';
+  ctx.lineWidth = 12;
+  for (let i = -size; i < size * 2; i += 16) {
     ctx.beginPath();
     ctx.moveTo(i, 0);
     ctx.lineTo(i + size, size);
@@ -116,33 +131,54 @@ function awningMat(seed: number): THREE.MeshBasicMaterial {
     tex.repeat.set(3, 1);
     return new THREE.MeshBasicMaterial({ map: tex });
   }
-  const color = AWNING_SOLID_COLORS[seed % AWNING_SOLID_COLORS.length];
-  return solidMat(color);
+  return solidMat(AWNING_SOLID_COLORS[seed % AWNING_SOLID_COLORS.length]);
 }
 
-function getGlassTexture(): THREE.CanvasTexture {
+function getCartoonGlassTexture(): THREE.CanvasTexture {
   if (glassTexture) return glassTexture;
 
-  const w = 64;
-  const h = 96;
+  const w = 80;
+  const h = 110;
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
   const ctx = canvas.getContext('2d')!;
 
-  const grad = ctx.createLinearGradient(0, 0, w * 0.35, h * 0.4);
-  grad.addColorStop(0, '#9eb4c8');
-  grad.addColorStop(0.35, '#5f7386');
-  grad.addColorStop(1, '#3d4f5e');
-  ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, w, h);
+  const sky = ctx.createLinearGradient(0, 0, 0, h);
+  sky.addColorStop(0, '#8ec8e8');
+  sky.addColorStop(0.45, '#5a9fc4');
+  sky.addColorStop(1, '#3d7aa8');
+  ctx.fillStyle = sky;
+  ctx.fillRect(8, 8, w - 16, h - 16);
 
-  ctx.fillStyle = 'rgba(210, 228, 242, 0.45)';
-  ctx.fillRect(4, 4, w * 0.42, h * 0.22);
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.72)';
+  ctx.beginPath();
+  ctx.ellipse(26, 24, 14, 9, -0.4, 0, Math.PI * 2);
+  ctx.fill();
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.35)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(14, 52);
+  ctx.lineTo(66, 38);
+  ctx.stroke();
+
+  ctx.strokeStyle = hexToCss(FRAME_SHADOW);
+  ctx.lineWidth = 5;
+  ctx.strokeRect(6, 6, w - 12, h - 12);
+
+  ctx.strokeStyle = hexToCss(FRAME_COLOR);
+  ctx.lineWidth = 3;
+  ctx.strokeRect(8, 8, w - 16, h - 16);
+
+  ctx.strokeStyle = hexToCss(FRAME_SHADOW);
+  ctx.lineWidth = 2.5;
+  ctx.beginPath();
+  ctx.moveTo(w / 2, 10);
+  ctx.lineTo(w / 2, h - 10);
+  ctx.moveTo(10, h * 0.42);
+  ctx.lineTo(w - 10, h * 0.42);
+  ctx.stroke();
 
   glassTexture = new THREE.CanvasTexture(canvas);
   glassTexture.colorSpace = THREE.SRGBColorSpace;
@@ -150,11 +186,11 @@ function getGlassTexture(): THREE.CanvasTexture {
 }
 
 function brickMat(color: number, width: number, height: number): THREE.MeshBasicMaterial {
-  const tex = createBrickTexture(color);
+  const tex = createCartoonBrickTexture(color);
   const mat = new THREE.MeshBasicMaterial({ map: tex.clone() });
   mat.map!.wrapS = THREE.RepeatWrapping;
   mat.map!.wrapT = THREE.RepeatWrapping;
-  mat.map!.repeat.set(Math.max(1, width / 1.8), Math.max(1, height / 1.6));
+  mat.map!.repeat.set(Math.max(1, width / 2.2), Math.max(1, height / 2));
   return mat;
 }
 
@@ -164,9 +200,9 @@ function solidMat(color: number): THREE.MeshBasicMaterial {
 
 function glassMat(): THREE.MeshBasicMaterial {
   return new THREE.MeshBasicMaterial({
-    map: getGlassTexture(),
+    map: getCartoonGlassTexture(),
     transparent: true,
-    opacity: 0.92,
+    opacity: 1,
   });
 }
 
@@ -186,72 +222,162 @@ function addPart(
   if (outline) {
     const ol = new THREE.Mesh(
       geo,
-      new THREE.MeshBasicMaterial({ color: 0x2e2c29, side: THREE.BackSide }),
+      new THREE.MeshBasicMaterial({ color: OUTLINE_COLOR, side: THREE.BackSide }),
     );
-    ol.scale.setScalar(1.03);
+    ol.scale.setScalar(OUTLINE_SCALE);
     mesh.add(ol);
   }
   parent.add(mesh);
   return mesh;
 }
 
+function addCartoonWindow(
+  parent: THREE.Group,
+  x: number,
+  y: number,
+  z: number,
+  seed: number,
+) {
+  const frameW = 0.88;
+  const frameH = 1.08;
+  const glassW = 0.68;
+  const glassH = 0.82;
+  const depth = 0.1;
+
+  addPart(
+    parent,
+    new THREE.BoxGeometry(frameW, frameH, depth),
+    solidMat(FRAME_COLOR),
+    x,
+    y,
+    z,
+    true,
+  );
+
+  addPart(
+    parent,
+    new THREE.BoxGeometry(frameW + 0.06, frameH + 0.06, depth * 0.55),
+    solidMat(FRAME_SHADOW),
+    x,
+    y,
+    z - 0.025,
+    false,
+  );
+
+  addPart(
+    parent,
+    new THREE.BoxGeometry(glassW, glassH, depth * 0.65),
+    glassMat(),
+    x,
+    y + 0.02,
+    z + 0.02,
+    true,
+  );
+
+  addPart(
+    parent,
+    new THREE.BoxGeometry(0.06, glassH, depth * 0.7),
+    solidMat(FRAME_COLOR),
+    x,
+    y + 0.02,
+    z + 0.025,
+    true,
+  );
+  addPart(
+    parent,
+    new THREE.BoxGeometry(glassW, 0.06, depth * 0.7),
+    solidMat(FRAME_COLOR),
+    x,
+    y + 0.02,
+    z + 0.025,
+    true,
+  );
+
+  addPart(
+    parent,
+    new THREE.BoxGeometry(frameW + 0.04, 0.1, depth + 0.04),
+    solidMat(seed % 4 === 0 ? lighten(FRAME_COLOR, 0.04) : FRAME_SHADOW),
+    x,
+    y - frameH / 2 - 0.04,
+    z + 0.01,
+    true,
+  );
+}
+
 function makeFacade(width: number, height: number, depth: number, seed: number): THREE.Group {
   const g = new THREE.Group();
   const wallColor = FACADE_COLORS[seed % FACADE_COLORS.length];
-  const trimColor = darken(wallColor, 0.22);
+  const trimColor = darken(wallColor, 0.28);
+  const roofColor = darken(wallColor, 0.35);
 
   const wall = brickMat(wallColor, width, height);
   const trimMat = solidMat(trimColor);
-  const windowMat = glassMat();
 
-  addPart(g, new THREE.BoxGeometry(width, height, depth), wall, 0, height / 2, 0);
+  addPart(g, new THREE.BoxGeometry(width, height, depth), wall, 0, height / 2, 0, true);
 
   const floors = Math.max(2, Math.floor(height / 2.2));
   for (let f = 0; f < floors; f++) {
-    const y = 1.2 + f * 2.1;
-    const cols = Math.max(2, Math.floor(width / 1.4));
+    const y = 1.25 + f * 2.15;
+    const cols = Math.max(2, Math.floor(width / 1.45));
     for (let c = 0; c < cols; c++) {
-      const wx = -width / 2 + 0.8 + c * 1.35;
+      const wx = -width / 2 + 0.85 + c * 1.38;
+      addCartoonWindow(g, wx, y, depth / 2 + 0.04, seed + f + c);
+    }
+  }
+
+  addPart(
+    g,
+    new THREE.BoxGeometry(width + 0.14, 0.42, depth + 0.14),
+    solidMat(roofColor),
+    0,
+    height + 0.14,
+    0,
+    true,
+  );
+  addPart(
+    g,
+    new THREE.BoxGeometry(width + 0.06, 0.12, depth + 0.08),
+    solidMat(lighten(roofColor, 0.08)),
+    0,
+    height + 0.38,
+    0,
+    true,
+  );
+
+  if (seed % 3 !== 1) {
+    for (let i = -1; i <= 1; i += 2) {
       addPart(
         g,
-        new THREE.BoxGeometry(0.75, 0.95, 0.08),
-        windowMat,
-        wx,
-        y,
+        new THREE.BoxGeometry(0.14, height * 0.92, 0.14),
+        trimMat,
+        i * (width / 2 - 0.08),
+        height / 2,
         depth / 2 + 0.02,
         true,
-      );
-      addPart(
-        g,
-        new THREE.BoxGeometry(0.82, 0.08, 0.1),
-        solidMat(darken(trimColor, 0.08)),
-        wx,
-        y - 0.58,
-        depth / 2 + 0.02,
       );
     }
   }
 
-  addPart(g, new THREE.BoxGeometry(width + 0.1, 0.35, depth + 0.12), trimMat, 0, height + 0.12, 0);
-
   const awning = addPart(
     g,
-    new THREE.BoxGeometry(width * 0.7, 0.08, 0.9),
+    new THREE.BoxGeometry(width * 0.72, 0.1, 0.95),
     awningMat(seed),
     0,
-    1.6,
-    depth / 2 + 0.45,
+    1.65,
+    depth / 2 + 0.48,
+    true,
   );
-  awning.rotation.x = -0.2;
+  awning.rotation.x = -0.22;
 
   if (seed % 2 === 0) {
     addPart(
       g,
-      new THREE.BoxGeometry(0.5, 1.8, 0.5),
-      solidMat(lighten(trimColor, 0.06)),
-      width * 0.3,
-      0.9,
-      depth / 2 + 0.2,
+      new THREE.BoxGeometry(0.55, 1.85, 0.55),
+      solidMat(lighten(trimColor, 0.05)),
+      width * 0.28,
+      0.92,
+      depth / 2 + 0.22,
+      true,
     );
   }
 

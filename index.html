@@ -67,7 +67,47 @@
         </div>
         <p class="subtitle">Choose your cat</p>
         <div id="cat-grid" class="cat-grid"></div>
-        <button id="btn-start" class="btn primary" disabled>SKATE!</button>
+        <div class="menu-actions">
+          <button id="btn-controls" class="btn" type="button">Controls</button>
+          <button id="btn-start" class="btn primary" disabled>SKATE!</button>
+        </div>
+      </div>
+
+      <div id="controls-modal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="controls-title">
+        <button id="controls-backdrop" class="modal-backdrop" type="button" aria-label="Close controls"></button>
+        <div class="modal-card controls-card">
+          <h2 id="controls-title">Controls</h2>
+
+          <div class="controls-section">
+            <h3>Steer</h3>
+            <ul class="controls-list">
+              <li><span class="control-action">Drag</span><span class="control-desc">Left / right</span></li>
+              <li><span class="control-action">A D</span><span class="control-desc">Steer (desktop)</span></li>
+            </ul>
+          </div>
+
+          <div class="controls-section">
+            <h3>On the ground</h3>
+            <ul class="controls-list">
+              <li><span class="control-action">Swipe down</span><span class="control-desc">Ollie · 100 pts</span></li>
+              <li><span class="control-action">Space</span><span class="control-desc">Ollie (desktop)</span></li>
+            </ul>
+          </div>
+
+          <div class="controls-section">
+            <h3>In the air</h3>
+            <ul class="controls-list">
+              <li><span class="control-action">↙ Down-left</span><span class="control-desc">Kickflip · 150</span></li>
+              <li><span class="control-action">↘ Down-right</span><span class="control-desc">Heelflip · 200</span></li>
+              <li><span class="control-action">↖ Up-left</span><span class="control-desc">Tail grab · 200</span></li>
+              <li><span class="control-action">↗ Up-right</span><span class="control-desc">Nose grab · 150</span></li>
+            </ul>
+            <p class="controls-note">No swipe in air = plain ollie only</p>
+            <p class="controls-note">+100 bonus on all tricks off a ramp</p>
+          </div>
+
+          <button id="btn-close-controls" class="btn primary" type="button">Got it</button>
+        </div>
       </div>
 
       <div id="screen-hud" class="screen hidden">
